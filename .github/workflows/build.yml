@@ -1,23 +1,42 @@
 # CI for your own GitHub repository: same reproducible, Gradle-free path as local builds.
+# On failure the last log lines are attached as an annotation (readable via the API);
+# on success the APK is attached to a GitHub Release named after the run number.
 name: build
-on: [push, pull_request, workflow_dispatch]
+on: [push, workflow_dispatch]
 permissions:
-  contents: read
+  contents: write
 jobs:
   verify:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
         with: { distribution: temurin, java-version: '21' }
       - name: Fetch pinned toolchain (verified by SHA-256)
-        run: tools/fetch-toolchain.sh "$RUNNER_TEMP/pf-toolchain"
+        run: |
+          set -o pipefail
+          tools/fetch-toolchain.sh "$RUNNER_TEMP/pf-toolchain" 2>&1 | tee fetch.log || {
+            msg=$(tail -60 fetch.log | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}'); echo "::error title=fetch-toolchain failed::$msg"; exit 1; }
       - name: Static checks, tests, end-to-end checks and release APK
-        run: PF_TOOLCHAIN="$RUNNER_TEMP/pf-toolchain" tools/verify-all.sh
+        run: |
+          set -o pipefail
+          PF_TOOLCHAIN="$RUNNER_TEMP/pf-toolchain" tools/verify-all.sh 2>&1 | tee ci.log || {
+            msg=$(tail -80 ci.log | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}'); echo "::error title=verify-all failed::$msg"; exit 1; }
+          grep -E "tests:|E2E:|Verifies|static checks:" ci.log | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}' | xargs -0 -I{} echo "::notice title=verify-all summary::{}"
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
-          name: PocketForge-apk
+          name: PocketForge-ci
           path: |
             build-local/apk/*.apk
             build-local/apk/*.sha256
             build-local/verify-all.log
+            ci.log
+      - name: Publish APK as a release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "ci-${{ github.run_number }}" build-local/apk/*.apk build-local/apk/*.sha256 \
+            --title "PocketForge CI build ${{ github.run_number }}" \
+            --notes "Built by GitHub Actions from ${{ github.sha }}. Signed with the CI runner's throwaway debug key (not the release key)." \
+            --prerelease
