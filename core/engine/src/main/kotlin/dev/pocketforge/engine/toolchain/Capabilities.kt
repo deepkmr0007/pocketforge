@@ -19,6 +19,14 @@ data class DeviceFacts(
     val remoteHostConfigured: Boolean,
     val aiProviderConfigured: Boolean,
     val localModelPresent: Boolean,
+    /** A real shell exists at /system/bin/sh and could be started (measured by the platform layer). */
+    val shellAvailable: Boolean = false,
+    /** Termux (com.termux) is installed — needed for the experimental on-device toolchain bridge. */
+    val termuxInstalled: Boolean = false,
+    /** The user granted com.termux.permission.RUN_COMMAND to PocketForge. */
+    val termuxPermissionGranted: Boolean = false,
+    /** A shared build folder was chosen for the Termux bridge. */
+    val termuxWorkspaceConfigured: Boolean = false,
 )
 
 enum class CapStatus(val label: String) {
@@ -53,9 +61,24 @@ object CapabilityEvaluator {
             if (f.totalRamBytes in 1 until 6L * 1024 * 1024 * 1024) add("Gradle + Kotlin compiler typically need 6 GB+ RAM")
         }
         c += Capability(
-            "build.local", "On-device APK build",
+            "build.local", "On-device Gradle build (inside PocketForge)",
             if (onDeviceReason.isEmpty()) CapStatus.EXPERIMENTAL else CapStatus.UNAVAILABLE,
-            if (onDeviceReason.isEmpty()) "Toolchain detected; builds are experimental." else onDeviceReason.joinToString("; ") + ". Use Export to computer or a Build Host.",
+            if (onDeviceReason.isEmpty()) "Toolchain detected; builds are experimental." else onDeviceReason.joinToString("; ") + ". Use the Termux bridge, Export to computer, or a Build Host.",
+        )
+        c += Capability(
+            "build.termux", "On-device build via Termux (android-lite projects)",
+            when {
+                !f.termuxInstalled -> CapStatus.UNAVAILABLE
+                !f.termuxPermissionGranted -> CapStatus.PERMISSION_REQUIRED
+                !f.termuxWorkspaceConfigured -> CapStatus.NOT_CONFIGURED
+                else -> CapStatus.EXPERIMENTAL
+            },
+            when {
+                !f.termuxInstalled -> "Install Termux (F-Droid or GitHub build) and its build packages yourself; PocketForge never installs software."
+                !f.termuxPermissionGranted -> "Grant PocketForge the Termux \"Run commands\" permission when you start the first on-device build."
+                !f.termuxWorkspaceConfigured -> "Choose a shared build folder in Build Center → On-device (Termux)."
+                else -> "Runs aapt2 → javac → d8 → apksigner inside Termux. Only the generated script runs; the APK is re-hashed and inspected before success is shown."
+            },
         )
         c += Capability(
             "build.remote", "Build on your own Build Host (LAN/remote)",
@@ -72,7 +95,12 @@ object CapabilityEvaluator {
         )
         c += Capability("build.export", "Export project to build on a computer", CapStatus.SUPPORTED, "Creates a clean ZIP plus BUILD_INSTRUCTIONS.md.")
         c += Capability("apk.inspect", "Inspect & install APKs", CapStatus.SUPPORTED, "Reads package, version, SDK levels and signature scheme. Install uses Android's own installer and always asks.")
-        c += Capability("terminal", "Terminal", CapStatus.UNAVAILABLE, "No shell backend is bundled in this version; shown honestly instead of a fake console.")
+        c += Capability(
+            "terminal", "Terminal (system shell)",
+            if (f.shellAvailable) CapStatus.SUPPORTED else CapStatus.UNAVAILABLE,
+            if (f.shellAvailable) "Runs Android's /system/bin/sh (toybox) in the project folder with a clean environment, timeout and output limit. Risky commands need confirmation; it is not a Linux distribution and has no compilers."
+            else "No usable shell was found on this device, so the terminal is disabled.",
+        )
         c += Capability("emulator", "Android emulator", CapStatus.UNAVAILABLE, "Not possible on a phone without hardware virtualization; test on this device or a second phone.")
         c += Capability(
             "ai.online", "AI assistant (online provider)",

@@ -68,7 +68,9 @@ object ProjectNames {
 }
 
 object Templates {
-    val all: List<ProjectTemplate> = listOf(AndroidComposeTemplate, KotlinJvmTemplate, WebTemplate, PythonTemplate, EmptyTemplate)
+    val all: List<ProjectTemplate> = listOf(
+        dev.pocketforge.engine.build.AndroidLiteTemplate, AndroidComposeTemplate, KotlinJvmTemplate, WebTemplate, PythonTemplate, EmptyTemplate,
+    )
     fun byId(id: String) = all.firstOrNull { it.id == id } ?: throw PfException("template.unknown", "Unknown template '$id'.")
 
     internal fun common(input: TemplateInput, t: ProjectTemplate, extraReadme: String): Map<String, String> {
