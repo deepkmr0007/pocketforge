@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- No cleartext traffic anywhere. Only system CAs (no user-installed CAs).
+     Self-signed Build Hosts are reached through explicit SHA-256 certificate pinning in code. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Anvil-and-bracket mark: original artwork for PocketForge. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#FFFFB74D"
+        android:pathData="M34,46h40v6c0,4 -3,7 -7,7h-6v7h8v6H39v-6h8v-7h-6c-4,0 -7,-3 -7,-7z" />
+    <path android:fillColor="#00000000" android:strokeColor="#FF80DEEA" android:strokeWidth="4"
+        android:strokeLineCap="round" android:strokeLineJoin="round"
+        android:pathData="M30,34l-8,8 8,8M78,34l8,8 -8,8" />
+</vector>
