@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="pf_background">#FF101418</color>
+    <color name="pf_background">#FF0E1215</color>
     <color name="pf_icon_bg">#FF0F2A3A</color>
+    <color name="pf_bg_dark">#FF0E1215</color>
+    <color name="pf_surface_dark">#FF161B20</color>
+    <color name="pf_accent_dark">#FFF5A524</color>
+    <color name="pf_bg_light">#FFF5F6F8</color>
+    <color name="pf_surface_light">#FFFFFFFF</color>
+    <color name="pf_accent_light">#FFB45309</color>
 </resources>

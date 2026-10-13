@@ -1,8 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.PocketForge" parent="android:Theme.Material.NoActionBar">
-        <item name="android:statusBarColor">@android:color/transparent</item>
-        <item name="android:navigationBarColor">@android:color/transparent</item>
-        <item name="android:windowBackground">@color/pf_background</item>
+    <!-- Framework Material themes only (no AndroidX). The app picks Dark/Light at runtime from Settings. -->
+    <style name="Theme.PocketForge.Dark" parent="android:Theme.Material.NoActionBar">
+        <item name="android:colorAccent">@color/pf_accent_dark</item>
+        <item name="android:colorPrimary">@color/pf_surface_dark</item>
+        <item name="android:colorPrimaryDark">@color/pf_bg_dark</item>
+        <item name="android:windowBackground">@color/pf_bg_dark</item>
+        <item name="android:alertDialogTheme">@style/PfDialog.Dark</item>
+        <item name="android:colorControlActivated">@color/pf_accent_dark</item>
     </style>
+    <style name="Theme.PocketForge.Light" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:colorAccent">@color/pf_accent_light</item>
+        <item name="android:colorPrimary">@color/pf_surface_light</item>
+        <item name="android:colorPrimaryDark">@color/pf_bg_light</item>
+        <item name="android:windowBackground">@color/pf_bg_light</item>
+        <item name="android:alertDialogTheme">@style/PfDialog.Light</item>
+        <item name="android:colorControlActivated">@color/pf_accent_light</item>
+    </style>
+    <style name="PfDialog.Dark" parent="android:Theme.Material.Dialog.Alert">
+        <item name="android:colorAccent">@color/pf_accent_dark</item>
+    </style>
+    <style name="PfDialog.Light" parent="android:Theme.Material.Light.Dialog.Alert">
+        <item name="android:colorAccent">@color/pf_accent_light</item>
+    </style>
+    <!-- Launch theme: shown before the first frame; matches the dark palette to avoid a white flash. -->
+    <style name="Theme.PocketForge" parent="Theme.PocketForge.Dark" />
 </resources>

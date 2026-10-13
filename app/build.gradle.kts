@@ -1,7 +1,9 @@
+// Gradle build for Android Studio users. The APK in releases is produced by tools/build-apk.sh
+// from the same sources with pinned tools (no Google Maven access needed). Both paths must agree:
+// zero third-party runtime libraries (enforced by tools/verify/static_checks.py).
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.kotlin.compose)
 }
 
 // Release signing comes ONLY from environment variables (CI secrets or your shell), never from
@@ -10,15 +12,14 @@ val releaseKeystore = System.getenv("PF_KEYSTORE_FILE")
 
 android {
     namespace = "dev.pocketforge.ide"
-    compileSdk = 36
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "dev.pocketforge.ide"
         minSdk = 26
-        targetSdk = 36
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0.0"
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     signingConfigs {
@@ -35,63 +36,24 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = true
-            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             if (releaseKeystore != null) signingConfig = signingConfigs.getByName("release")
         }
-        debug {
-            applicationIdSuffix = ".debug"
-            versionNameSuffix = "-debug"
-        }
     }
-
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    buildFeatures {
-        compose = true
-        buildConfig = true
-    }
-    packaging {
-        resources.excludes += setOf("/META-INF/{AL2.0,LGPL2.1}", "/META-INF/LICENSE*")
-    }
+    sourceSets["main"].java.srcDirs("src/main/kotlin")
     lint {
-        abortOnError = true
-        warningsAsErrors = false
-        checkDependencies = true
-        // Pinned build-host certificates intentionally bypass hostname checks (the pin is the identity).
-        disable += setOf("AllowAllHostnameVerifier", "TrustAllX509TrustManager")
+        // Mirrors the API-26 compile rule of tools/build-apk.sh.
+        error += "NewApi"
+        checkReleaseBuilds = true
     }
-    testOptions { unitTests.isReturnDefaultValues = true }
 }
 
 kotlin { jvmToolchain(17) }
 
 dependencies {
     implementation(project(":core:engine"))
-
-    implementation(libs.androidx.core.ktx)
-    implementation(libs.androidx.activity.compose)
-    implementation(libs.androidx.lifecycle.runtime.compose)
-    implementation(libs.androidx.lifecycle.viewmodel.compose)
-    implementation(libs.androidx.navigation.compose)
-    implementation(libs.androidx.datastore.preferences)
-    implementation(libs.kotlinx.coroutines.android)
-
-    implementation(platform(libs.compose.bom))
-    implementation(libs.compose.ui)
-    implementation(libs.compose.material3)
-    implementation(libs.compose.material.icons.extended)
-    implementation(libs.compose.ui.tooling.preview)
-    debugImplementation(libs.compose.ui.tooling)
-
-    testImplementation(libs.junit4)
-    testImplementation(libs.kotlinx.coroutines.test)
-
-    androidTestImplementation(platform(libs.compose.bom))
-    androidTestImplementation(libs.compose.ui.test.junit4)
-    androidTestImplementation(libs.androidx.test.ext.junit)
-    androidTestImplementation(libs.androidx.test.runner)
-    debugImplementation(libs.compose.ui.test.manifest)
 }

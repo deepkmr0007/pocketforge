@@ -43,10 +43,12 @@ class UrlConnectionTransport(
 ) : Transport {
     override fun send(req: HttpRequest): HttpResponse {
         val uri = URI(req.url)
-        if (uri.scheme?.lowercase() != "https") throw NetworkError("Refusing non-HTTPS URL.")
-        val conn = uri.toURL().openConnection() as HttpsURLConnection
+        val scheme = uri.scheme?.lowercase()
+        val loopbackHttp = scheme == "http" && Loopback.isLoopbackHost(uri.host)
+        if (scheme != "https" && !loopbackHttp) throw NetworkError("Refusing non-HTTPS URL (plain HTTP is allowed only to 127.0.0.1 on this phone).")
+        val conn = uri.toURL().openConnection() as java.net.HttpURLConnection
         try {
-            pinnedSha256?.let { pin ->
+            if (conn is HttpsURLConnection) pinnedSha256?.let { pin ->
                 val ctx = SSLContext.getInstance("TLS")
                 ctx.init(null, arrayOf(PinnedTrustManager(pin.lowercase().replace(":", ""))), null)
                 conn.sslSocketFactory = ctx.socketFactory

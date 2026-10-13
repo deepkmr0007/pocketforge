@@ -38,6 +38,52 @@ class EditHistory(
         while (undo.size > maxSteps || (bytes > maxBytes && undo.size > 1)) bytes -= size(undo.removeFirst())
     }
 
+    /**
+     * Records an edit the editor already applied (from a text watcher), without copying the whole
+     * document. Same coalescing and limits as [record].
+     */
+    fun recordEdit(start: Int, removed: String, inserted: String, cursorBefore: Int, cursorAfter: Int, now: Long) {
+        if (removed == inserted) return
+        val e = Edit(start, removed, inserted, now, cursorBefore, cursorAfter)
+        redo.clear()
+        val last = undo.lastOrNull()
+        if (last != null && canMerge(last, e)) {
+            undo.removeLast(); bytes -= size(last)
+            val merged = merge(last, e)
+            undo.addLast(merged); bytes += size(merged)
+        } else {
+            undo.addLast(e); bytes += size(e)
+        }
+        while (undo.size > maxSteps || (bytes > maxBytes && undo.size > 1)) bytes -= size(undo.removeFirst())
+    }
+
+    /**
+     * Pops the edit to undo. The caller replaces `[start, start + inserted.length)` with `removed`.
+     * Returns null (and changes nothing) if the document no longer matches the history.
+     */
+    fun undoEdit(current: CharSequence): Edit? {
+        val e = undo.lastOrNull() ?: return null
+        if (!regionEquals(current, e.start, e.inserted)) { clear(); return null }
+        undo.removeLast(); bytes -= size(e)
+        redo.addLast(e)
+        return e
+    }
+
+    /** Pops the edit to redo. The caller replaces `[start, start + removed.length)` with `inserted`. */
+    fun redoEdit(current: CharSequence): Edit? {
+        val e = redo.lastOrNull() ?: return null
+        if (!regionEquals(current, e.start, e.removed)) { clear(); return null }
+        redo.removeLast()
+        undo.addLast(e); bytes += size(e)
+        return e
+    }
+
+    private fun regionEquals(cs: CharSequence, start: Int, s: String): Boolean {
+        if (start < 0 || start + s.length > cs.length) return false
+        for (i in s.indices) if (cs[start + i] != s[i]) return false
+        return true
+    }
+
     fun undo(current: String): TextState? {
         val e = undo.removeLastOrNull() ?: return null
         bytes -= size(e)

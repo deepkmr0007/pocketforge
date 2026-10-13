@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- Only build artifacts and explicitly shared exports are exposed, never projects or secrets. -->
-<paths>
-    <files-path name="artifacts" path="builds/artifacts/" />
-    <cache-path name="shared" path="shared/" />
-</paths>

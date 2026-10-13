@@ -2,11 +2,14 @@ package dev.pocketforge.ide.platform
 
 import android.app.ActivityManager
 import android.content.Context
+import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Build
 import android.os.StatFs
+import dev.pocketforge.engine.build.TermuxProtocol
+import dev.pocketforge.engine.terminal.ShellRunner
 import dev.pocketforge.engine.toolchain.DeviceFacts
 import java.io.File
 import java.util.concurrent.TimeUnit
@@ -41,6 +44,10 @@ class DeviceProbe(private val context: Context) {
             remoteHostConfigured = settings.hostUrl.isNotBlank(),
             aiProviderConfigured = aiConfigured,
             localModelPresent = false,
+            shellAvailable = ShellRunner.isAvailable(),
+            termuxInstalled = termuxInstalled(),
+            termuxPermissionGranted = context.checkSelfPermission(TermuxProtocol.PERMISSION) == PackageManager.PERMISSION_GRANTED,
+            termuxWorkspaceConfigured = settings.termuxTreeUri.isNotBlank(),
         )
     }
 
@@ -69,6 +76,8 @@ class DeviceProbe(private val context: Context) {
             copy.delete()
         }
     }
+
+    fun termuxInstalled(): Boolean = runCatching { context.packageManager.getPackageInfo(TermuxProtocol.PACKAGE, 0); true }.getOrDefault(false)
 
     fun isOnline(): Boolean {
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager

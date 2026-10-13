@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <!-- Used ONLY after you approve a specific request (AI provider or your Build Host). -->
     <uses-permission android:name="android.permission.INTERNET" />
@@ -8,40 +7,65 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- Lets you install an APK you built, via Android's own installer, only when you tap Install. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- Defined by Termux. Requested only when you start an on-device build; lets PocketForge ask Termux to run the generated script. -->
+    <uses-permission android:name="com.termux.permission.RUN_COMMAND" />
+
+    <!-- Package visibility: only Termux is queried (to show whether on-device builds are possible). -->
+    <queries>
+        <package android:name="com.termux" />
+    </queries>
 
     <application
         android:name=".PocketForgeApp"
         android:allowBackup="false"
-        android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:networkSecurityConfig="@xml/network_security_config"
         android:supportsRtl="true"
         android:theme="@style/Theme.PocketForge"
-        android:enableOnBackInvokedCallback="true"
-        tools:targetApi="34">
+        android:enableOnBackInvokedCallback="false"
+>
+
+        <!-- WebView preview: opt out of WebView usage-metrics upload (no telemetry). -->
+        <meta-data android:name="android.webkit.WebView.MetricsOptOut" android:value="true" />
 
         <activity
-            android:name=".MainActivity"
+            android:name=".screens.HomeActivity"
             android:exported="true"
-            android:windowSoftInputMode="adjustResize"
-            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|density|uiMode">
+            android:launchMode="singleTask">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity android:name=".screens.NewProjectActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
+        <activity
+            android:name=".screens.ProjectActivity"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:windowSoftInputMode="adjustResize|stateHidden" />
+        <activity android:name=".screens.SearchActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".screens.SnapshotsActivity" android:exported="false" />
+        <activity android:name=".screens.ExportActivity" android:exported="false" />
+        <activity android:name=".screens.BuildActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".screens.TerminalActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".screens.TestActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".screens.AiActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".screens.PrivacyActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".screens.SettingsActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".screens.HelpActivity" android:exported="false" />
+        <activity android:name=".screens.PreviewActivity" android:exported="false" />
 
         <provider
-            android:name="androidx.core.content.FileProvider"
-            android:authorities="${applicationId}.files"
+            android:name=".platform.ShareProvider"
+            android:authorities="dev.pocketforge.ide.share"
             android:exported="false"
-            android:grantUriPermissions="true">
-            <meta-data
-                android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/file_paths" />
-        </provider>
+            android:grantUriPermissions="true" />
+
+        <receiver android:name=".platform.InstallResultReceiver" android:exported="false" />
+        <receiver android:name=".platform.TermuxResultReceiver" android:exported="false" />
     </application>
 </manifest>

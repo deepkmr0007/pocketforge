@@ -1,4 +1,8 @@
-# The engine uses no reflection or serialization frameworks, so no keep rules are needed.
-# Keep line numbers for readable (locally stored, never uploaded) crash traces.
+# R8 rules for the release build. Manifest components are kept by aapt2-generated rules.
+# The app uses no reflection, serialization frameworks or JNI.
+-dontwarn kotlin.**
+-dontwarn org.jetbrains.annotations.**
 -keepattributes SourceFile,LineNumberTable
 -renamesourcefileattribute SourceFile
+# Kotlin metadata is not needed at runtime (no kotlin-reflect).
+-dontwarn kotlin.Metadata

@@ -122,8 +122,8 @@ class AnthropicProvider(private val apiKey: String, private val model: String, p
 /** Any OpenAI-compatible /chat/completions endpoint, e.g. a self-hosted model server on your own computer (HTTPS). */
 class OpenAiCompatibleProvider(private val baseUrl: String, private val apiKey: String?, private val model: String) : AiProvider {
     override val id = "openai-compatible"
-    override val displayName = "OpenAI-compatible ($model)"
-    override val isLocal = false
+    override val isLocal = runCatching { dev.pocketforge.engine.consent.Loopback.isLoopbackHost(java.net.URI(baseUrl).host) }.getOrDefault(false)
+    override val displayName = if (isLocal) "On-device model server ($model)" else "OpenAI-compatible ($model)"
 
     override fun buildRequest(task: AiTask): HttpRequest {
         val body = Json.obj(
@@ -154,6 +154,22 @@ internal fun userMessage(task: AiTask) = buildString {
 
 fun consentFor(provider: AiProvider, task: AiTask): ConsentRequest {
     val req = provider.buildRequest(task)
+    if (provider.isLocal) return ConsentRequest(
+        feature = "AI assistant: ${task.action.title}",
+        provider = provider.displayName,
+        purpose = "Send your request and the selected, redacted code to a model server running on THIS phone (${req.host}).",
+        risks = buildList {
+            add("The data stays on this phone (loopback address), but any app on the phone that runs a server on that port could receive it.")
+            if (task.context.redactions > 0) add("${task.context.redactions} likely secret(s) were masked before sending.")
+            if (task.context.truncated) add("Context was truncated to stay within limits.")
+            addAll(task.context.injectionWarnings)
+            add("AI output can be wrong. Changes are shown as diffs and are never applied automatically.")
+        },
+        dataItems = listOf(dev.pocketforge.engine.consent.DataItem("Your request", task.userPrompt.length.toLong(), task.userPrompt.take(2000))) + task.context.items,
+        request = req,
+        sendsSourceCode = task.context.items.isNotEmpty(),
+        redactionsApplied = task.context.redactions,
+    )
     return ConsentRequest(
         feature = "AI assistant: ${task.action.title}",
         provider = provider.displayName,

@@ -51,6 +51,14 @@ data class ConsentRequest(
 
 enum class ConsentDecision { APPROVE_ONCE, DENY, CANCEL }
 
+/** Loopback = this phone. Used to allow plain HTTP only to a model server the user runs on the device itself. */
+object Loopback {
+    fun isLoopbackHost(host: String?): Boolean {
+        val h = host?.lowercase()?.trim('[', ']') ?: return false
+        return h == "localhost" || h == "::1" || h == "0:0:0:0:0:0:0:1" || Regex("^127(\\.\\d{1,3}){3}$").matches(h)
+    }
+}
+
 /**
  * UI hook. Implementations block the calling *background* thread until the user answers.
  * Any exception, timeout or missing UI is treated as DENY (fail closed).
@@ -137,9 +145,10 @@ class ConsentGateway(
 
     fun request(req: ConsentRequest): ConsentTicket {
         val uri = try { URI(req.request.url) } catch (e: Exception) { throw ConsentDenied("Malformed destination URL.") }
-        if (uri.scheme?.lowercase() != "https") {
+        val scheme = uri.scheme?.lowercase()
+        if (scheme != "https" && !(scheme == "http" && Loopback.isLoopbackHost(uri.host))) {
             record(req, "BLOCKED_INSECURE")
-            throw ConsentDenied("Only HTTPS destinations are allowed (got '${uri.scheme}').")
+            throw ConsentDenied("Only HTTPS destinations are allowed (plain HTTP only to this phone's own 127.0.0.1). Got '${uri.scheme}://${uri.host}'.")
         }
         if (!networkAllowed()) {
             record(req, "BLOCKED_OFFLINE_MODE")

@@ -1,10 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- No cleartext traffic anywhere. Only system CAs (no user-installed CAs).
-     Self-signed Build Hosts are reached through explicit SHA-256 certificate pinning in code. -->
+<!-- No cleartext traffic, except to this phone's own loopback address (an AI model server the user runs
+     on the device, e.g. llama.cpp in Termux). Only system CAs (no user-installed CAs).
+     Self-signed Build Hosts are reached through explicit SHA-256 certificate pinning in code.
+     Every request is additionally gated by the in-app consent gateway. -->
 <network-security-config>
     <base-config cleartextTrafficPermitted="false">
         <trust-anchors>
             <certificates src="system" />
         </trust-anchors>
     </base-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">127.0.0.1</domain>
+        <domain includeSubdomains="false">localhost</domain>
+    </domain-config>
 </network-security-config>
