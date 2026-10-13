@@ -1,10 +1,14 @@
-build/
-build-local/
+# Build outputs (anchored: a bare "build/" would also hide source packages named "build")
+/build/
+/app/build/
+/core/engine/build/
+/build-local/
 .gradle/
 local.properties
 *.iml
 .idea/
 /out/
+# Signing material never belongs in the repository
 *.jks
 *.keystore
 *.p12

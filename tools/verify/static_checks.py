@@ -94,6 +94,18 @@ deps = re.findall(r'^\s*implementation\((.*)\)', gradle, re.M)
 if any("project(" not in d for d in deps):
     errors.append(f"app/build.gradle.kts: third-party runtime dependencies are not allowed: {deps}")
 
+# 7. Every source file must be tracked by git (a stray .gitignore rule once hid the engine's build/ package).
+import subprocess
+if (root / ".git").exists():
+    try:
+        ignored = subprocess.run(["git", "-C", str(root), "ls-files", "--others", "--ignored", "--exclude-standard"],
+                                 capture_output=True, text=True, timeout=60).stdout.split("\n")
+        for f in ignored:
+            if f.endswith((".kt", ".java", ".xml", ".py", ".sh", ".md", ".kts", ".pro", ".toml")) and not f.startswith(("build-local/", "build/")) and "/build/" not in f.replace("engine/build/", ""):
+                errors.append(f"{f}: source file is ignored by .gitignore and would be missing from the repository")
+    except (OSError, subprocess.SubprocessError):
+        pass
+
 if errors:
     print("STATIC CHECKS FAILED:")
     for e in errors:
