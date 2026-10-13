@@ -17,7 +17,22 @@ jobs:
           set -o pipefail
           tools/fetch-toolchain.sh "$RUNNER_TEMP/pf-toolchain" 2>&1 | tee fetch.log || {
             msg=$(tail -60 fetch.log | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}'); echo "::error title=fetch-toolchain failed::$msg"; exit 1; }
+      - name: Release key from repository secrets (optional)
+        env:
+          KS_B64: ${{ secrets.PF_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KS_B64" ]; then
+            umask 077; echo "$KS_B64" | base64 -d > "$RUNNER_TEMP/release.p12"
+            echo "PF_KEYSTORE=$RUNNER_TEMP/release.p12" >> "$GITHUB_ENV"
+            echo "PF_KEYSTORE_PASS=env:PF_KS_PASS" >> "$GITHUB_ENV"
+            echo "SIGNING=release key" >> "$GITHUB_ENV"
+          else
+            echo "SIGNING=the CI runner's throwaway debug key (add PF_KEYSTORE_B64, PF_KEYSTORE_PASSWORD, PF_KEY_ALIAS secrets to use your release key)" >> "$GITHUB_ENV"
+          fi
       - name: Static checks, tests, end-to-end checks and release APK
+        env:
+          PF_KS_PASS: ${{ secrets.PF_KEYSTORE_PASSWORD }}
+          PF_KEY_ALIAS: ${{ secrets.PF_KEY_ALIAS }}
         run: |
           set -o pipefail
           PF_TOOLCHAIN="$RUNNER_TEMP/pf-toolchain" tools/verify-all.sh 2>&1 | tee ci.log || {
@@ -28,15 +43,19 @@ jobs:
         with:
           name: PocketForge-ci
           path: |
-            build-local/apk/*.apk
-            build-local/apk/*.sha256
+            build-local/apk/PocketForge-*.apk
+            build-local/apk/PocketForge-*.apk.sha256
             build-local/verify-all.log
             ci.log
       - name: Publish APK as a release
+        if: github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "ci-${{ github.run_number }}" build-local/apk/*.apk build-local/apk/*.sha256 \
+          gh release create "ci-${{ github.run_number }}" build-local/apk/PocketForge-*.apk build-local/apk/PocketForge-*.apk.sha256 \
             --title "PocketForge CI build ${{ github.run_number }}" \
-            --notes "Built by GitHub Actions from ${{ github.sha }}. Signed with the CI runner's throwaway debug key (not the release key)." \
+            --notes "Built by GitHub Actions from ${{ github.sha }}. Signed with ${SIGNING}." \
             --prerelease
+      - name: Remove key material
+        if: always()
+        run: rm -f "$RUNNER_TEMP/release.p12"
