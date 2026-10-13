@@ -10,6 +10,7 @@ import android.os.Bundle
 import android.os.SystemClock
 import android.view.View
 import android.view.ViewGroup
+import android.view.inputmethod.EditorInfo
 import dev.pocketforge.engine.projects.Project
 import dev.pocketforge.engine.projects.TemplateInput
 import dev.pocketforge.engine.selftest.SelfTest
@@ -136,22 +137,36 @@ class ScreenWalker : Instrumentation() {
     private fun editorChecks(intent: Intent) = screen("project-editor", intent) { activity ->
         val editor = runOnMain { find(activity.window.decorView, CodeEditText::class.java) }
         if (editor == null) { failures += "editor: no CodeEditText on screen"; return@screen }
-        val before = runOnMain { editor.text.length }
-        runOnMainSync { editor.requestFocus(); editor.setSelection(0) }
-        sendStringSync("// typed on device\n")
+        // Type the way an on-screen keyboard does: one commitText per key through the editor's
+        // InputConnection. (Injected hardware key events race with the emulator's keyboard app.)
+        val typed = "// typed on device\n"
+        val before = runOnMain { editor.text.toString() }
+        runOnMainSync {
+            editor.requestFocus(); editor.setSelection(0)
+            val ic = editor.onCreateInputConnection(EditorInfo())
+            if (ic == null) failures += "editor: no input connection (keyboard could not type)"
+            else for (ch in typed) ic.commitText(ch.toString(), 1)
+        }
         settle(800)
-        val after = runOnMain { editor.text.length }
-        if (after <= before) failures += "editor: typing did not change the text ($before -> $after)"
+        val (after, caret) = runOnMain { editor.text.toString() to editor.selectionStart }
+        if (after != typed + before) failures += "editor: typed text is wrong: '${after.take(40).replace("\n", "\\n")}' (expected '${(typed + before).take(40).replace("\n", "\\n")}')"
+        if (caret != typed.length) failures += "editor: cursor at $caret after typing, expected ${typed.length}"
         shot("project-editor-typed")
 
         // Rotation recreates the screen: the typed text must survive.
         val auto = uiAutomation
+        val monitor = addMonitor(ProjectActivity::class.java.name, null, false)
         auto.setRotation(UiAutomation.ROTATION_FREEZE_90)
         settle(2500)
+        val rotated = waitForMonitorWithTimeout(monitor, 5000) ?: activity
+        removeMonitor(monitor)
+        val afterRotation = runOnMain { find(rotated.window.decorView, CodeEditText::class.java)?.text?.toString() }
+        if (afterRotation == null || !afterRotation.startsWith(typed)) failures += "editor: typed text lost after rotation"
         shot("project-editor-landscape")
         auto.setRotation(UiAutomation.ROTATION_FREEZE_0)
         settle(2000)
         auto.setRotation(UiAutomation.ROTATION_UNFREEZE)
+        if (rotated !== activity) runOnMainSync { if (!rotated.isFinishing) rotated.finish() }
     }
 
     private fun settle(ms: Long) { waitForIdleSync(); SystemClock.sleep(ms); waitForIdleSync() }
