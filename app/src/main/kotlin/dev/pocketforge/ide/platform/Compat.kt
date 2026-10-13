@@ -19,23 +19,37 @@ import dev.pocketforge.engine.common.Hashing
  * Every function here checks Build.VERSION.SDK_INT before touching a newer API.
  */
 object Compat {
-    /** Draw behind the system bars on every API level, so the insets handling is uniform. */
+    /**
+     * Draw behind the system bars on every API level, so the insets handling is uniform.
+     *
+     * The decor view is created FIRST: on some Android 15/16 builds Window.getInsetsController()
+     * dereferences the decor without creating it, which crashed every screen in onCreate (1.0.0).
+     * The controller is then taken from the decor view (which hands out a pending controller until
+     * it is attached), and any vendor failure falls back to the pre-API-30 flags instead of crashing.
+     */
     @Suppress("DEPRECATION") // statusBarColor/systemUiVisibility are the only way below API 30; documented in ADR-0007.
     fun edgeToEdge(window: Window, lightBars: Boolean) {
-        window.statusBarColor = Color.TRANSPARENT
-        window.navigationBarColor = Color.TRANSPARENT
-        if (Build.VERSION.SDK_INT >= 30) {
-            window.setDecorFitsSystemWindows(false)
-            val mask = WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS or WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS
-            window.insetsController?.setSystemBarsAppearance(if (lightBars) mask else 0, mask)
-        } else {
-            var flags = View.SYSTEM_UI_FLAG_LAYOUT_STABLE or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-            if (lightBars) {
-                flags = flags or View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
-                if (Build.VERSION.SDK_INT >= 27) flags = flags or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
-            }
-            window.decorView.systemUiVisibility = flags
+        val decor = window.decorView
+        runCatching {
+            window.statusBarColor = Color.TRANSPARENT
+            window.navigationBarColor = Color.TRANSPARENT
         }
+        if (Build.VERSION.SDK_INT >= 30) {
+            val applied = runCatching {
+                window.setDecorFitsSystemWindows(false)
+                val mask = WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS or WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS
+                val controller = decor.windowInsetsController ?: window.insetsController
+                controller?.setSystemBarsAppearance(if (lightBars) mask else 0, mask)
+                controller != null
+            }.getOrDefault(false)
+            if (applied) return
+        }
+        var flags = View.SYSTEM_UI_FLAG_LAYOUT_STABLE or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+        if (lightBars) {
+            flags = flags or View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
+            if (Build.VERSION.SDK_INT >= 27) flags = flags or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
+        }
+        decor.systemUiVisibility = flags
     }
 
     /** left, top, right, bottom padding needed for system bars, display cutout and the keyboard. */

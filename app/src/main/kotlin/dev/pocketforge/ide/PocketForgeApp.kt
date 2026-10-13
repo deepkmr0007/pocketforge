@@ -38,6 +38,6 @@ class PocketForgeApp : Application() {
 
 /** Build metadata. Written by tools/build-apk.sh and the Gradle build from the same values. */
 object BuildInfo {
-    const val VERSION_NAME = "1.0.0"
-    const val VERSION_CODE = 1
+    const val VERSION_NAME = "1.0.1"
+    const val VERSION_CODE = 2
 }

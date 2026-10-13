@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Test-only APK (never shipped): instruments dev.pocketforge.ide. Must be signed with the app's key. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="dev.pocketforge.uitest">
+    <application android:label="PocketForge screen walker" android:hasCode="true" />
+    <instrumentation
+        android:name="dev.pocketforge.uitest.ScreenWalker"
+        android:label="PocketForge screen walker"
+        android:targetPackage="dev.pocketforge.ide" />
+</manifest>

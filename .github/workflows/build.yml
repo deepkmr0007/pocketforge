@@ -1,6 +1,11 @@
 # CI for your own GitHub repository: same reproducible, Gradle-free path as local builds.
-# On failure the last log lines are attached as an annotation (readable via the API);
-# on success the APK is attached to a GitHub Release named after the run number.
+#  1. verify      static checks, engine tests, end-to-end checks, release APK + screen-walker APK
+#  2. device-test boots real Android emulators (oldest supported, API 30, Android 15, Android 16),
+#                 opens every screen in light and dark mode, types in the editor, rotates it,
+#                 and runs the on-device security self-test. Any crash fails the build.
+#  3. release     only when 1 and 2 passed: the APK, its checksum and the screenshots are
+#                 published as a GitHub Release.
+# Failures are attached as annotations (readable via the API) with the crash trace.
 name: build
 on: [push, workflow_dispatch]
 permissions:
@@ -29,33 +34,84 @@ jobs:
           else
             echo "SIGNING=the CI runner's throwaway debug key (add PF_KEYSTORE_B64, PF_KEYSTORE_PASSWORD, PF_KEY_ALIAS secrets to use your release key)" >> "$GITHUB_ENV"
           fi
-      - name: Static checks, tests, end-to-end checks and release APK
+      - name: Static checks, tests, end-to-end checks, release APK and screen-walker APK
         env:
           PF_KS_PASS: ${{ secrets.PF_KEYSTORE_PASSWORD }}
           PF_KEY_ALIAS: ${{ secrets.PF_KEY_ALIAS }}
         run: |
           set -o pipefail
-          PF_TOOLCHAIN="$RUNNER_TEMP/pf-toolchain" tools/verify-all.sh 2>&1 | tee ci.log || {
+          { PF_TOOLCHAIN="$RUNNER_TEMP/pf-toolchain" tools/verify-all.sh && PF_TOOLCHAIN="$RUNNER_TEMP/pf-toolchain" tools/build-uitest.sh; } 2>&1 | tee ci.log || {
             msg=$(tail -80 ci.log | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}'); echo "::error title=verify-all failed::$msg"; exit 1; }
           grep -E "tests:|E2E:|Verifies|static checks:" ci.log | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}' | xargs -0 -I{} echo "::notice title=verify-all summary::{}"
+          grep -o "SIGNING=.*" "$GITHUB_ENV" | tail -1 > build-local/apk/signing.txt || true
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: PocketForge-ci
           path: |
-            build-local/apk/PocketForge-*.apk
-            build-local/apk/PocketForge-*.apk.sha256
+            build-local/apk/PocketForge-*-release.apk
+            build-local/apk/PocketForge-*-release.apk.sha256
+            build-local/apk/PocketForge-uitest.apk
+            build-local/apk/signing.txt
             build-local/verify-all.log
             ci.log
-      - name: Publish APK as a release
-        if: github.ref == 'refs/heads/main'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release create "ci-${{ github.run_number }}" build-local/apk/PocketForge-*.apk build-local/apk/PocketForge-*.apk.sha256 \
-            --title "PocketForge CI build ${{ github.run_number }}" \
-            --notes "Built by GitHub Actions from ${{ github.sha }}. Signed with ${SIGNING}." \
-            --prerelease
       - name: Remove key material
         if: always()
         run: rm -f "$RUNNER_TEMP/release.p12"
+
+  device-test:
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { api: 26, target: google_apis, label: android-8.0-api26 }
+          - { api: 30, target: google_apis, label: android-11-api30 }
+          - { api: 35, target: google_apis, label: android-15-api35 }
+          - { api: 36, target: google_apis, label: android-16-api36 }
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v4
+        with: { name: PocketForge-ci, path: apks }
+      - name: Enable KVM (hardware-accelerated emulator)
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Walk every screen on Android API ${{ matrix.api }}
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api }}
+          target: ${{ matrix.target }}
+          arch: x86_64
+          disable-animations: true
+          emulator-boot-timeout: 900
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-snapshot
+          script: bash tools/uitest/run-on-emulator.sh apks/build-local/apk ${{ matrix.label }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screens-${{ matrix.label }}
+          path: uitest-out/
+
+  release:
+    needs: [verify, device-test]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { path: dl }
+      - name: Publish APK and screenshots as a release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          APK=$(ls dl/PocketForge-ci/build-local/apk/PocketForge-*-release.apk)
+          (cd dl && zip -qr ../PocketForge-screenshots.zip screens-*)
+          SIGNING=$(sed 's/^SIGNING=//' dl/PocketForge-ci/build-local/apk/signing.txt 2>/dev/null || echo "unknown key")
+          gh release create "ci-${{ github.run_number }}" "$APK" "$APK.sha256" PocketForge-screenshots.zip \
+            --repo "${{ github.repository }}" \
+            --title "PocketForge CI build ${{ github.run_number }}" \
+            --notes "Built by GitHub Actions from ${{ github.sha }}. Opened on Android 8.0, 11, 15 and 16 emulators (every screen, light and dark) without a crash; screenshots attached. Signed with ${SIGNING}." \
+            --prerelease

@@ -39,3 +39,17 @@ Reproducibility check: `tools/fetch-toolchain.sh` into an empty folder (all 6 ch
 - **Accessibility audit with TalkBack**, performance profiling on low-end phones, low-storage behaviour on a device.
 
 These are the first items of [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md).
+
+## On real Android systems (screen walker)
+`app/src/uitest` is a test-only instrumentation APK (never shipped). It runs inside the app's
+process, opens every screen with the extras the app's own navigation uses, types in the editor,
+rotates it, runs `SelfTest` on the device and screenshots each step.
+
+```
+PF_TOOLCHAIN=~/pf-toolchain tools/build-apk.sh --release && PF_TOOLCHAIN=~/pf-toolchain tools/build-uitest.sh
+tools/uitest/run-on-emulator.sh build-local/apk my-phone      # any emulator or phone on adb
+```
+CI runs it on Android 8.0 (API 26), 11 (30), 15 (35) and 16 (36) emulators in light and dark
+mode. A crash fails the build with the crash trace as an annotation; the release is published
+only when every device passed, with the screenshots attached (`PocketForge-screenshots.zip`).
+The instrumentation must be signed with the same key as the app (Android enforces this).

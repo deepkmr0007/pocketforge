@@ -8,14 +8,16 @@ and optionally ask an AI — with explicit approval before **every** network req
 > **Not Google's Android Studio** and not affiliated with Google. It does not pretend to replace
 > desktop Android Studio; it shows exactly what works on your phone (Help → What works on this phone).
 
-**Status (v1.0.0):** fully implemented and compiled; 94 automated checks pass (74 unit tests, 7 Build
-Host E2E, 13 on-device-build E2E) plus static security checks and APK signature verification.
-**The UI has not yet been run on a device or emulator** (none was available in the build environment);
-see [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md) for the device checks still open.
+**Status (v1.0.1):** 94 automated checks pass (74 unit tests, 7 Build Host E2E, 13 on-device-build E2E)
+plus static security checks and APK signature verification. **Every push is also run on real Android
+emulators** (Android 8.0, 11, 15 and 16): a screen walker opens every screen in light and dark mode,
+types in the editor, rotates it and runs the security self-test on the device; a release is published
+only if nothing crashed, with the screenshots attached. 1.0.0 crashed on start on some Android 15/16
+phones; 1.0.1 fixes it. See [docs/TESTING.md](docs/TESTING.md).
 
 ## Install
-1. Copy `PocketForge-1.0.0-release.apk` to your phone and open it (allow "Install unknown apps" for your file manager when Android asks).
-2. Requires Android 8.0+ (API 26); targets API 35 (Android 15). Not yet run on a device — see Status above.
+1. Copy `PocketForge-1.0.1-release.apk` to your phone and open it (allow "Install unknown apps" for your file manager when Android asks).
+2. Requires Android 8.0+ (API 26); targets API 35 (Android 15). Tested on Android 8.0, 11, 15 and 16 emulators.
 3. Verify the download: `sha256sum` must match the `.sha256` file. The release is signed with the PocketForge
    release key, certificate SHA-256 `adb129f6acc6714e59a710afc6185f27ff4819b8655248b9a7e6c337eccbb9c0`
    (`apksigner verify --print-certs`). Updates must carry the same certificate.

@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.1 — 2026-10-13
+### Fixed
+- **Crash on start on some Android 15/16 phones** (`NullPointerException` in `PhoneWindow.getInsetsController`, reported from a real phone). The window's decor view is now created before edge-to-edge setup, the insets controller is taken from the decor view, and any vendor failure falls back to the older flags instead of crashing.
+
+### Added
+- **On-device screen walker** (`app/src/uitest`, test-only APK, never shipped): opens every screen the way the app navigates to it, types in the editor, rotates it, runs the security self-test on the device, and screenshots everything.
+- **CI on real Android emulators** (Android 8.0, 11, 15, 16; light and dark): a crash fails the build with the crash trace as an annotation; releases are published only after all devices pass, with the screenshots attached.
+
 ## 1.0.0 — 2026-10-13
 First complete build across phases 0–6.
 
