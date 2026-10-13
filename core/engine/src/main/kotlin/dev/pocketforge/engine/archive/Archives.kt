@@ -36,7 +36,11 @@ data class ImportReport(
  * case-colliding entries. It never creates symbolic links: every entry becomes a regular file.
  * Two passes: pass 1 validates names only; pass 2 extracts.
  */
-class SafeZipImporter(private val limits: ImportLimits = ImportLimits()) {
+class SafeZipImporter(
+    private val limits: ImportLimits = ImportLimits(),
+    /** Seam for tests that reproduce platform ZIP behaviour (e.g. Android 14's own path check). */
+    internal val newZip: (InputStream) -> ZipInputStream = { ZipInputStream(it) },
+) {
 
     fun import(open: () -> InputStream, destination: File): ImportReport {
         val names = scanNames(open())
@@ -47,10 +51,10 @@ class SafeZipImporter(private val limits: ImportLimits = ImportLimits()) {
         var files = 0
         var total = 0L
         val counting = CountingInputStream(open())
-        ZipInputStream(counting).use { zin ->
+        newZip(counting).use { zin ->
             var entries = 0
             while (true) {
-                val e: ZipEntry = zin.nextEntry ?: break
+                val e: ZipEntry = nextEntry(zin) ?: break
                 if (++entries > limits.maxEntries) throw SecurityViolation("zip.too_many_entries", "Archive has more than ${limits.maxEntries} entries.")
                 var name = e.name.replace('\\', '/')
                 if (prefix != null) name = name.removePrefix(prefix)
@@ -87,15 +91,29 @@ class SafeZipImporter(private val limits: ImportLimits = ImportLimits()) {
     /** Validates entry names without extracting anything. */
     fun scanNames(input: InputStream): List<String> {
         val names = ArrayList<String>()
-        ZipInputStream(input).use { zin ->
+        newZip(input).use { zin ->
             while (true) {
-                val e = zin.nextEntry ?: break
+                val e = nextEntry(zin) ?: break
                 if (names.size >= limits.maxEntries) throw SecurityViolation("zip.too_many_entries", "Archive has more than ${limits.maxEntries} entries.")
                 names += e.name.replace('\\', '/')
             }
         }
         if (names.isEmpty()) throw PfException("zip.invalid", "This file is not a ZIP archive or it is empty.")
         return names
+    }
+
+    /**
+     * Android 14+ rejects "../" and absolute entry names inside ZipInputStream itself (ZipException
+     * "Invalid zip entry path"), before our own PathGuard sees them. Same outcome, but it must reach
+     * the user as the same clear security message on every Android version, not a raw ZipException.
+     */
+    private fun nextEntry(zin: ZipInputStream): ZipEntry? = try {
+        zin.nextEntry
+    } catch (e: java.util.zip.ZipException) {
+        if (e.message?.contains("Invalid zip entry path", ignoreCase = true) == true) {
+            throw SecurityViolation("zip.path_traversal", "Archive contains an entry that points outside the project folder; nothing was imported.")
+        }
+        throw PfException("zip.invalid", "This ZIP archive is damaged or not supported: ${e.message}")
     }
 
     private fun isJunk(name: String) = name.startsWith("__MACOSX/") || name.endsWith("/.DS_Store") || name == ".DS_Store" || name.endsWith("Thumbs.db")

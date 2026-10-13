@@ -8,7 +8,7 @@ and optionally ask an AI — with explicit approval before **every** network req
 > **Not Google's Android Studio** and not affiliated with Google. It does not pretend to replace
 > desktop Android Studio; it shows exactly what works on your phone (Help → What works on this phone).
 
-**Status (v1.0.1):** 94 automated checks pass (74 unit tests, 7 Build Host E2E, 13 on-device-build E2E)
+**Status (v1.0.1):** 95 automated checks pass (75 unit tests, 7 Build Host E2E, 13 on-device-build E2E)
 plus static security checks and APK signature verification. **Every push is also run on real Android
 emulators** (Android 8.0, 11, 15 and 16): a screen walker opens every screen in light and dark mode,
 types in the editor, rotates it and runs the security self-test on the device; a release is published

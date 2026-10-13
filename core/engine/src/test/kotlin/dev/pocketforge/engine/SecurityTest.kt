@@ -40,6 +40,27 @@ class SecurityTest {
         assertFalse(File(parent, "evil.txt").exists())
     }
 
+    /** Android 14+ throws ZipException("Invalid zip entry path") itself; users must still get our clear security error. */
+    @Test fun platformZipPathRejectionBecomesSecurityViolation() {
+        val dir = Files.createTempDirectory("pf-a14").toFile()
+        val zip = java.io.ByteArrayOutputStream().also { bos ->
+            java.util.zip.ZipOutputStream(bos).use { it.putNextEntry(java.util.zip.ZipEntry("a.txt")); it.write(1); it.closeEntry() }
+        }.toByteArray()
+        val android14 = SafeZipImporter(newZip = { input ->
+            object : java.util.zip.ZipInputStream(input) {
+                override fun getNextEntry(): java.util.zip.ZipEntry? = throw java.util.zip.ZipException("Invalid zip entry path: ../../escaped.txt")
+            }
+        })
+        val e = assertFailsWith<SecurityViolation> { android14.import({ zip.inputStream() }, File(dir, "dest").apply { mkdirs() }) }
+        assertEquals("zip.path_traversal", e.code)
+        val damaged = SafeZipImporter(newZip = { input ->
+            object : java.util.zip.ZipInputStream(input) {
+                override fun getNextEntry(): java.util.zip.ZipEntry? = throw java.util.zip.ZipException("invalid LOC header")
+            }
+        })
+        assertEquals("zip.invalid", assertFailsWith<PfException> { damaged.import({ zip.inputStream() }, File(dir, "d2").apply { mkdirs() }) }.code)
+    }
+
     @Test fun absoluteZipEntryRejected() {
         val zip = zipOf("/abs.txt" to "x".toByteArray())
         assertFailsWith<SecurityViolation> { SafeZipImporter().import({ zip.inputStream() }, tempDir()) }

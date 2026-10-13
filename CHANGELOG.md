@@ -2,6 +2,7 @@
 
 ## 1.0.1 — 2026-10-13
 ### Fixed
+- **ZIP import on Android 14+**: Android now rejects `../` entry names inside its own ZIP reader, which surfaced as a raw `ZipException` (found by the on-device self-test). It is now reported as PocketForge's own security error on every Android version; damaged archives get a clear message too.
 - **Crash on start on some Android 15/16 phones** (`NullPointerException` in `PhoneWindow.getInsetsController`, reported from a real phone). The window's decor view is now created before edge-to-edge setup, the insets controller is taken from the decor view, and any vendor failure falls back to the older flags instead of crashing.
 
 ### Added
