@@ -50,10 +50,8 @@ class SearchActivity : BaseActivity() {
         searchBtn = ui.button("Search", Btn.PRIMARY) { if (cancel != null) cancel?.set(true) else runSearch() }
         replaceBtn = ui.button("Preview replace…", Btn.SECONDARY, enabled = false) { previewReplace() }
         undoBtn = ui.button("Undo last replace", Btn.TEXT) { undoReplace() }
-        val form = ui.vertical(12) {
-            addView(query, ui.lp())
-            addView(ui.space(8))
-            addView(replacement, ui.lp())
+        val options = ui.vertical {
+            visibility = View.GONE
             addView(ui.horizontal {
                 addView(ui.checkbox("Regex", false) { regex = it })
                 addView(ui.checkbox("Case", false) { caseSensitive = it })
@@ -62,26 +60,38 @@ class SearchActivity : BaseActivity() {
             addView(include, ui.lp())
             addView(ui.space(6))
             addView(exclude, ui.lp())
+        }
+        // The form sits ABOVE the list (EditTexts inside ListView headers lose focus when results update).
+        val form = ui.vertical(12) {
+            setBackgroundColor(p.surface)
+            addView(query, ui.lp())
+            addView(ui.space(8))
+            addView(replacement, ui.lp())
+            addView(options, ui.lp())
             addView(ui.space(8))
             addView(ui.horizontal {
                 addView(searchBtn, ui.lp(0, weight = 1f))
                 addView(ui.space(0), ui.lp(ui.dp(8), 1))
                 addView(replaceBtn, ui.lp(0, weight = 1f))
             })
-            addView(undoBtn)
+            addView(ui.horizontal {
+                addView(ui.button("Options", Btn.TEXT) { options.visibility = if (options.visibility == View.VISIBLE) View.GONE else View.VISIBLE })
+                addView(undoBtn)
+            })
             addView(summary)
         }
         adapter = RowAdapter(emptyList()) { m, _, convert -> row(m, convert) }
         val list = ui.list().apply {
             adapter = this@SearchActivity.adapter
-            addHeaderView(form, null, false)
             setOnItemClickListener { _, _, pos, _ ->
-                val m = this@SearchActivity.adapter.getItem(pos - headerViewsCount)
+                val m = this@SearchActivity.adapter.getItem(pos)
                 Nav.project(this@SearchActivity, pid, m.path, m.line)
             }
         }
         val root = ui.vertical {
             addView(ui.topBar("Search in project", null, { finish() }), ui.lp())
+            addView(ui.divider())
+            addView(form, ui.lp())
             addView(ui.divider())
             addView(list, ui.lp(h = 0, weight = 1f))
         }

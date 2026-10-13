@@ -94,6 +94,15 @@ class SettingsActivity : BaseActivity() {
             })
         }
 
+        col.addView(ui.section("Storage"))
+        val usage = ui.caption("Measuring…")
+        col.addView(usage)
+        bg({ c.storageUsage() }) { r -> r.onSuccess { list -> usage.text = list.joinToString("\n") { (k, v) -> "$k: ${dev.pocketforge.engine.common.humanBytes(v)}" } } }
+        col.addView(ui.button("Clear temporary cache", Btn.SECONDARY) {
+            bg({ c.clearCache() }) { r -> r.onSuccess { toast("Freed ${dev.pocketforge.engine.common.humanBytes(it)}. Projects, snapshots and drafts are untouched."); render() } }
+        })
+        col.addView(ui.caption("Clearing the cache never deletes source files, snapshots or recovery drafts. Old snapshots can be deleted under each project's Snapshots; trash under Privacy."))
+
         col.addView(ui.section("Privacy"))
         col.addView(ui.switchRow("Block all network", "Kill switch for every network feature.", s.networkBlocked) { v -> set { it.copy(networkBlocked = v) } })
         col.addView(ui.button("Privacy & permissions…", Btn.TEXT) { Nav.privacy(this) })

@@ -3,7 +3,11 @@
 # (see tools/toolchain.lock and tools/fetch-toolchain.sh). This is how the APK in this repository's
 # releases is produced; the Gradle files remain for Android Studio users.
 #
-#   PF_TOOLCHAIN=/path/to/toolchain tools/build-apk.sh [--release] [--no-tests]
+#   PF_TOOLCHAIN=/path/to/toolchain tools/build-apk.sh [--release] [--minify] [--no-tests]
+#
+#   --release  non-debuggable build (D8 release mode). Default: debug.
+#   --minify   additionally shrink/optimise with R8 (smaller APK). Off by default because the R8 inside
+#              the pinned bundletool predates Kotlin 2.0; enable only after testing on a device.
 #
 # Signing: by default a LOCAL debug key is generated in $PF_TOOLCHAIN/keys (never committed).
 # For a release key set PF_KEYSTORE, PF_KEYSTORE_PASS (env:/file:/pass: form) and PF_KEY_ALIAS.
@@ -11,8 +15,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 TC="${PF_TOOLCHAIN:?set PF_TOOLCHAIN to the folder created by tools/fetch-toolchain.sh}"
 OUT="$ROOT/build-local/apk"
-MODE=debug; RUN_TESTS=1
-for a in "$@"; do case "$a" in --release) MODE=release;; --no-tests) RUN_TESTS=0;; *) echo "unknown option $a"; exit 2;; esac; done
+MODE=debug; RUN_TESTS=1; MINIFY=0
+for a in "$@"; do case "$a" in --release) MODE=release;; --minify) MINIFY=1;; --no-tests) RUN_TESTS=0;; *) echo "unknown option $a"; exit 2;; esac; done
 
 KOTLINC="$TC/kotlinc/bin/kotlinc"
 AAPT2="$TC/aapt2"
@@ -65,16 +69,17 @@ step "compile app (Kotlin, against API 26 android.jar)"
 "$KOTLINC" -no-jdk -no-reflect -jvm-target 1.8 -nowarn -cp "$JAR26:$OUT/engine:$OUT/compat:$OUT/classes-r" -d "$OUT/app" \
   $(find "$ROOT/app/src/main/kotlin" -name '*.kt' ! -name 'Compat.kt') 2>&1 | quiet
 
-step "dex ($MODE)"
+step "dex ($MODE$([ "$MINIFY" = 1 ] && echo ', R8 minify'))"
 CLASSES=()
 while IFS= read -r -d '' f; do CLASSES+=("$f"); done < <(find "$OUT/classes-r" "$OUT/engine" "$OUT/compat" "$OUT/app" -name '*.class' -print0)
-if [ "$MODE" = release ]; then
+if [ "$MODE" = release ] && [ "$MINIFY" = 1 ]; then
   cat "$ROOT/app/proguard-rules.pro" "$OUT/aapt-rules.pro" > "$OUT/rules.pro"
   (cd "$OUT" && mkdir -p r8in && cd r8in && for d in classes-r engine compat app; do (cd "$OUT/$d" && find . -name '*.class' | zip -q -@ "$OUT/r8in/$d.jar"); done)
   java -Xmx3g -cp "$BT" com.android.tools.r8.R8 --release --min-api 26 --lib "$JAR35" --pg-conf "$OUT/rules.pro" \
     --pg-map-output "$OUT/mapping.txt" --output "$OUT/dex" "$OUT"/r8in/*.jar "$KLIB/kotlin-stdlib.jar" 2>&1 | quiet
 else
-  java -Xmx3g -cp "$BT" com.android.tools.r8.D8 --debug --min-api 26 --lib "$JAR35" --output "$OUT/dex" "${CLASSES[@]}" "$KLIB/kotlin-stdlib.jar" 2>&1 | quiet
+  D8MODE=--debug; [ "$MODE" = release ] && D8MODE=--release
+  java -Xmx3g -cp "$BT" com.android.tools.r8.D8 $D8MODE --min-api 26 --lib "$JAR35" --output "$OUT/dex" "${CLASSES[@]}" "$KLIB/kotlin-stdlib.jar" 2>&1 | quiet
 fi
 ls -la "$OUT/dex"
 

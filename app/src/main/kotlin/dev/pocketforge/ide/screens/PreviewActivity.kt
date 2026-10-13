@@ -37,7 +37,11 @@ class PreviewActivity : BaseActivity() {
         path = intent.getStringExtra(Nav.PATH) ?: "index.html"
         guard = PathGuard(c.projects.dirOf(pid))
         info = ui.caption("")
-        web = WebView(this)
+        web = try { WebView(this) } catch (e: Exception) {
+            // Some devices ship without a working WebView provider; say so instead of crashing.
+            toastLong("Android System WebView is unavailable or updating, so the preview cannot open: ${e.javaClass.simpleName}")
+            finish(); return
+        }
         web.settings.apply {
             javaScriptEnabled = js
             allowFileAccess = false

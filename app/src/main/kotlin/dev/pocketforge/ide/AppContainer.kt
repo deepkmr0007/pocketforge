@@ -110,6 +110,27 @@ class AppContainer(val app: Application) {
 
     fun aiSessionCount(): Int = runCatching { File(dataRoot, "ai-sessions.jsonl").readLines().size }.getOrDefault(0)
 
+    /** Bytes used per area (for Settings → Storage). */
+    fun storageUsage(): List<Pair<String, Long>> {
+        fun size(f: File): Long = if (!f.exists()) 0 else f.walkTopDown().filter { it.isFile }.sumOf { it.length() }
+        return listOf(
+            "Projects (your source code)" to size(projects.projectsDir),
+            "Snapshots" to size(File(dataRoot, "snapshots")),
+            "Trash" to size(File(dataRoot, "workspace/trash")),
+            "Build logs and APKs" to size(File(app.filesDir, "builds")),
+            "Recovery drafts" to size(File(dataRoot, "recovery")),
+            "Logs" to size(File(dataRoot, "logs")),
+            "Temporary cache" to size(app.cacheDir),
+        )
+    }
+
+    /** Deletes only regenerable data: the cache folder. Never touches projects, snapshots or drafts. */
+    fun clearCache(): Long {
+        val before = app.cacheDir.walkTopDown().filter { it.isFile }.sumOf { it.length() }
+        app.cacheDir.listFiles()?.forEach { it.deleteRecursively() }
+        return before
+    }
+
     fun runIo(block: () -> Unit) { io.execute { try { block() } catch (t: Throwable) { log.error("io", "background task failed", t) } } }
 
     /** "Delete local app data": projects, snapshots, drafts, logs, history, settings, secrets and the Keystore key. */
