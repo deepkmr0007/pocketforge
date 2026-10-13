@@ -28,10 +28,14 @@ artifacts could not be downloaded; under Gradle the same tests run with JUnit 5.
 - **AI**: context redaction and injection flags, proposals never applied, unsafe paths rejected, loopback labelling, consent texts.
 - **Self-test**: the 16 on-device invariants (`SelfTest`) pass on the JVM.
 
+Reproducibility check: `tools/fetch-toolchain.sh` into an empty folder (all 6 checksums OK), then
+`verify-all.sh` against that fresh toolchain — exit code 0, same results as above.
+
 ## Not tested (and why)
 - **The Android UI was never executed**: no emulator or device was available (no `/dev/kvm`, system images unreachable). Screens, dialogs, insets, IME behaviour, WebView preview, PackageInstaller and Termux intents are compiled and packaged but unverified at runtime.
 - **Live AI providers**: no API key was used; request/response formats are tested against fixtures.
 - **Termux RUN_COMMAND transport**: the generated script was run with the same tools on Linux; the intent round-trip with a real Termux was not.
+- **The GitHub Actions workflow** (`.github/workflows/build.yml`) has not been run (no CI runner here); it calls the same two scripts.
 - **Accessibility audit with TalkBack**, performance profiling on low-end phones, low-storage behaviour on a device.
 
 These are the first items of [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md).

@@ -14,6 +14,11 @@ PF_TOOLCHAIN=~/pf-toolchain tools/build-apk.sh --release --minify   # + R8 shrin
 ```
 Output: `build-local/apk/PocketForge-<version>-<mode>.apk` and a `.sha256` file.
 
+"Reproducible" here means: the same pinned, checksum-verified inputs and the same scripted steps on any
+machine (verified on 2026-10-13 by fetching the toolchain into an empty folder and passing `verify-all.sh`).
+The APK is **not yet bit-for-bit identical** across builds (zip entry timestamps); comparing two builds
+therefore needs `apksigner verify` + content comparison rather than a single hash.
+
 What the script does, in order: verify tool checksums → static policy checks → engine tests →
 aapt2 compile/link (manifest package injected; aapt2 keep rules generated) → javac R.java →
 kotlinc engine against **API-26** android.jar → kotlinc `Compat.kt` against API 35 → kotlinc app
