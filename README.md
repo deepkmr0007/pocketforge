@@ -15,7 +15,7 @@ see [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md) for the device checks
 
 ## Install
 1. Copy `PocketForge-1.0.0-release.apk` to your phone and open it (allow "Install unknown apps" for your file manager when Android asks).
-2. Requires Android 8.0+ (API 26). Tested target: API 35.
+2. Requires Android 8.0+ (API 26); targets API 35 (Android 15). Not yet run on a device — see Status above.
 3. Verify the download: `sha256sum` must match the `.sha256` file. The release is signed with the PocketForge
    release key, certificate SHA-256 `adb129f6acc6714e59a710afc6185f27ff4819b8655248b9a7e6c337eccbb9c0`
    (`apksigner verify --print-certs`). Updates must carry the same certificate.
