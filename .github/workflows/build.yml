@@ -1,0 +1,23 @@
+# CI for your own GitHub repository: same reproducible, Gradle-free path as local builds.
+name: build
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '21' }
+      - name: Fetch pinned toolchain (verified by SHA-256)
+        run: tools/fetch-toolchain.sh "$RUNNER_TEMP/pf-toolchain"
+      - name: Static checks, tests, end-to-end checks and release APK
+        run: PF_TOOLCHAIN="$RUNNER_TEMP/pf-toolchain" tools/verify-all.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PocketForge-apk
+          path: |
+            build-local/apk/*.apk
+            build-local/apk/*.sha256
+            build-local/verify-all.log

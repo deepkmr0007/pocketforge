@@ -72,27 +72,31 @@ class ProjectActivity : BaseActivity(), EditorController.Binding, CodeEditText.C
         val proj = runCatching { c.projects.get(pid) }.getOrElse { toastLong(it.message ?: "Project not found"); finish(); return }
         projectName = proj.name
         bg({ c.projects.touch(pid) }) {}
-        savedInstanceState?.getStringArrayList(KEY_EXPANDED)?.let { expanded.addAll(it) }
+        // Saved state belongs to the project it was saved for (recreate() may switch projects).
+        val state = savedInstanceState?.takeIf { it.getString(KEY_PROJECT) == pid }
+        state?.getStringArrayList(KEY_EXPANDED)?.let { expanded.addAll(it) }
         wide = resources.configuration.screenWidthDp >= 720
         ctl = c.editor(pid)
         buildUi()
         ctl.binding = this
+        showTab(ctl.activeTab) // null → empty state with the editor hidden, so stray taps cannot type into nowhere
+        tabsChanged()
         if (ctl.tabs.isEmpty()) {
-            val paths = savedInstanceState?.getStringArrayList(KEY_TABS).orEmpty()
-            val activePath = savedInstanceState?.getString(KEY_ACTIVE)
+            // Process death: reopen the tabs that were open; recovered drafts show up as banners.
+            val paths = state?.getStringArrayList(KEY_TABS).orEmpty()
+            val activePath = state?.getString(KEY_ACTIVE)
             paths.forEach { path -> ctl.open(path) { if (it.path == activePath) ctl.activate(ctl.tabs.indexOf(it)) } }
-        } else {
-            showTab(ctl.activeTab)
-            tabsChanged()
         }
         handle(intent)
-        if (ctl.tabs.isEmpty() && intent.getStringExtra(Nav.PATH) == null && savedInstanceState == null) setExplorerVisible(true)
+        if (ctl.tabs.isEmpty() && intent.getStringExtra(Nav.PATH) == null && state == null) setExplorerVisible(true)
         refreshTree()
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        val other = intent.getStringExtra(Nav.PROJECT)
+        if (other != null && other != pid) { recreate(); return } // different project: rebuild this screen for it
         handle(intent)
     }
 
@@ -655,7 +659,12 @@ class ProjectActivity : BaseActivity(), EditorController.Binding, CodeEditText.C
     override fun onResume() {
         super.onResume()
         if (isFinishing) return
-        ctl.binding = this
+        if (ctl.binding !== this) {
+            // Another editor screen for this project was bound meanwhile: re-sync from the shared controller.
+            ctl.binding = this
+            showTab(ctl.activeTab)
+            tabsChanged()
+        }
         applyEditorSettings()
         ctl.tabs.forEach { ctl.checkExternal(it) } // clean tabs changed on storage reload silently; dirty ones show a banner
         c.main.removeCallbacks(journalTick)
@@ -674,6 +683,7 @@ class ProjectActivity : BaseActivity(), EditorController.Binding, CodeEditText.C
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         if (!::ctl.isInitialized) return
+        outState.putString(KEY_PROJECT, pid)
         outState.putStringArrayList(KEY_TABS, ArrayList(ctl.tabs.map { it.path }))
         outState.putString(KEY_ACTIVE, ctl.activeTab?.path)
         outState.putStringArrayList(KEY_EXPANDED, ArrayList(expanded))
@@ -699,6 +709,7 @@ class ProjectActivity : BaseActivity(), EditorController.Binding, CodeEditText.C
     }
 
     companion object {
+        private const val KEY_PROJECT = "project"
         private const val KEY_TABS = "tabs"
         private const val KEY_ACTIVE = "active"
         private const val KEY_EXPANDED = "expanded"

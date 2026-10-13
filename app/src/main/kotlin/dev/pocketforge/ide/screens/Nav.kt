@@ -27,7 +27,13 @@ object Nav {
 
     fun home(ctx: Context) = ctx.startActivity(Intent(ctx, HomeActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP))
     fun newProject(ctx: Context) = go<NewProjectActivity>(ctx)
-    fun project(ctx: Context, pid: String, path: String? = null, line: Int = 0) = go<ProjectActivity>(ctx, PROJECT to pid, PATH to path, LINE to line)
+    /** Reuses an existing editor screen (CLEAR_TOP|SINGLE_TOP) so one project never has two live editors. */
+    fun project(ctx: Context, pid: String, path: String? = null, line: Int = 0) {
+        val i = Intent(ctx, ProjectActivity::class.java).putExtra(PROJECT, pid).putExtra(LINE, line)
+            .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        if (path != null) i.putExtra(PATH, path)
+        ctx.startActivity(i)
+    }
     fun search(ctx: Context, pid: String) = go<SearchActivity>(ctx, PROJECT to pid)
     fun snapshots(ctx: Context, pid: String) = go<SnapshotsActivity>(ctx, PROJECT to pid)
     fun export(ctx: Context, pid: String) = go<ExportActivity>(ctx, PROJECT to pid)
